@@ -4,28 +4,24 @@ import { } from '@koishijs/plugin-market'
 
 export const name = 'update-service'
 
-export const inject = {
-    optional: ['console.market']
-}
-
 export interface Config {
     interval: number
     endpoint: string
 }
 
-type Emptiable<T> = T | null | undefined
+type Emptiable<T> = T | null | undefined | void
 
-export interface CallbacksDict {
+interface CallbacksDict {
     new: (shortname: string, version: string) => Emptiable<boolean>,
     update: (shortname: string, currentVersion: string, latestVersion: string) => Emptiable<boolean>,
     delete: (shortname: string) => Emptiable<boolean>,
 }
 
-type OptionalCallbacksDict = Partial<CallbacksDict>
+export type Callbacks = Partial<CallbacksDict>
 
 interface CallbacksDictPrivates {
     private: {
-        unregistry: number  // unregistry code
+        verify: number  // verify code
         time: Date  // registry time
     }
 }
@@ -38,16 +34,21 @@ export const Config: Schema<Config> = Schema.object({
 
 const logger = new Logger(name)
 
-// export function apply(ctx: Context, config: Config) {
-//     ctx.plugin()
-// }
+function randint(min: number, max: number): number {
+    return Math.round(Math.min(min, max) + (Math.random() * Math.abs(max - min)))
+}
 
-class Updater extends Service {
+export class Updater extends Service {
     private previous = null
-    readonly registersMap: Map<string, CallbacksDict & CallbacksDictPrivates> = new Map()
+    private registers: Map<string, Callbacks & CallbacksDictPrivates> = new Map()
 
-    constructor(ctx: Context) {
-        super(ctx, name, true)
+    constructor(ctx: Context, config: Config) {
+        super(ctx, 'updater', true)
+        this.ctx.config = config  // fix it
+    }
+
+    async stop() {
+        this.registers.clear()
     }
 
     private makeDict(result: SearchResult) {  // https://github.com/koishijs/koishi-plugin-market-info/blob/main/src/index.tsx#L46#L159
@@ -63,10 +64,11 @@ class Updater extends Service {
         return this.makeDict(data)
     }
 
-    private callfunc(control: keyof CallbacksDict, name: string, currentVersion?: string, latestVersion?: string) {
-        const func = (this.registersMap.get(name) ?? {})[control]
+    private callfunc(action: keyof Callbacks, name: string, currentVersion?: string, latestVersion?: string) {
+        const func = (this.registers.get(name) ?? {})[action]
         if (func instanceof Function) {
             func(name, currentVersion, latestVersion)
+            return
         }
     }
 
@@ -91,7 +93,7 @@ class Updater extends Service {
 
                 if (version2) {  // 更新 version1 -> version2
                     logger.debug(`update plugin: ${name} (${version1} → ${version2})`)
-                    this.callfunc('update', version1, version2)
+                    this.callfunc('update', name, version1, version2)
                     return
                 }
 
@@ -111,46 +113,82 @@ class Updater extends Service {
      * @param shortname 插件名称
      * @param callbacks 回调函数
      * @param force 强制, 覆盖原有回调函数
-     * @returns 解除注册码
+     * @returns 验证注册码
      */
-    registry(shortname: string, callbacks: CallbacksDict, force: boolean=false): number {
-        if (this.registersMap.has(shortname) && !force) {
+    register(shortname: string, callbacks: Callbacks, force: boolean=false): number {
+        if (this.registers.has(shortname) && !force) {
             throw Error(`register for ${shortname} has already exist, please use \`force = true\` to replace`)
         }
 
-        const value: CallbacksDict & CallbacksDictPrivates = {
+        const value: Callbacks & CallbacksDictPrivates = {
             ...callbacks,
             private: {
-                unregistry: 0,
+                verify: randint(0, 2147483648),
                 time: new Date(),
             }
         }
 
-        this.registersMap.set(shortname, value)
+        this.registers.set(shortname, value)
+
+        this[Context.current]?.on('dispose', () => {
+            // 插件随风消散之后取消注册
+            this.unregister(shortname, value.private.verify)
+        })
+
+        return value.private.verify
     }
 
     /**
      * 解除注册更新监听器
      * @param shortname 插件名称
-     * @param unregistryCode 解除注册码
+     * @param verifyCode 验证注册码
      * @returns 0 -> 成功; 255 -> unregistryCode 错误;
      */
-    unregistry(shortname: string, unregistryCode: number): number {
-        if (!this.registersMap.has(shortname)) {
+    unregister(shortname: string, verifyCode: number): number {
+        if (!this.registers.has(shortname)) {
             return 0;
         }
 
-        const code = this.registersMap.get(shortname).private.unregistry
-        if (code && unregistryCode != code) {
+        const code = this.registers.get(shortname).private.verify
+        if (code && verifyCode != code) {
             return 255;
         }
 
-        this.registersMap.delete(shortname)
+        this.registers.delete(shortname)
+        return 0;
+    }
+
+    /**
+     * 解除注册更新监听器
+     * @param shortname 插件名称
+     * @param verifyCode 验证注册码
+     * @returns 0 -> 成功; 255 -> unregistryCode 错误;
+     */
+    update(shortname: string, verifyCode: number, callbacks: Callbacks): number {
+        if (!this.registers.has(shortname)) {
+            throw Error(`register for ${shortname} not found`)
+        }
+
+        const old = this.registers.get(shortname)
+        const code = old.private.verify
+        if (code && verifyCode != code) {
+            return 255;
+        }
+
+        let value = Object.assign({}, old)
+        value = Object.assign(value, callbacks)
+
+        this.registers.set(shortname, value)
+        return 0;
     }
 }
 
-declare module name {
+declare module 'koishi' {
     interface Context {
         updater: Updater
     }
+}
+
+export function apply(ctx: Context, config: Config) {
+    ctx.plugin(Updater, config)
 }
