@@ -1,39 +1,40 @@
 {
-    "name": "koishi-plugin-update-service",
-    "description": "检查更新小助手 (x",
-    "version": "0.0.2",
-    "main": "lib/index.js",
-    "typings": "lib/index.d.ts",
-    "files": [
-        "lib",
-        "dist"
-    ],
-    "license": "BSD-3-Clause",
-    "keywords": [
-        "chatbot",
-        "koishi",
-        "plugin"
-    ],
-    "contributors": [
-        "爱喝牛奶の涛哥 <zhuhansan666@outlook.com>"
-    ],
-    "author": {
-        "name": "爱喝牛奶の涛哥",
-        "email": "zhuhansan666@outlook.com",
-        "url": "https://github.com/zhuhansan666/"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/zhuhansan666/koishi-plugin-update-service.git"
-    },
-    "peerDependencies": {
-        "koishi": "^4.15.5"
-    },
-    "koishi": {
-        "service": {
-            "implements": [
-                "updater"
-            ]
-        }
+  "name": "koishi-plugin-update-service",
+  "description": "检查更新小助手 (x",
+  "version": "0.0.2",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "dist",
+    "const.js"
+  ],
+  "license": "BSD-3-Clause",
+  "keywords": [
+    "chatbot",
+    "koishi",
+    "plugin"
+  ],
+  "contributors": [
+    "爱喝牛奶の涛哥 <zhuhansan666@outlook.com>"
+  ],
+  "author": {
+    "name": "爱喝牛奶の涛哥",
+    "email": "zhuhansan666@outlook.com",
+    "url": "https://github.com/zhuhansan666/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhuhansan666/koishi-plugin-update-service.git"
+  },
+  "peerDependencies": {
+    "koishi": "^4.16.7"
+  },
+  "koishi": {
+    "service": {
+      "implements": [
+        "updater"
+      ]
     }
+  }
 }

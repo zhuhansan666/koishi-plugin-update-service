@@ -34,6 +34,7 @@ export function apply() {
     )
 }
 ```
+> 若 new 和/或 update 函数返回 true, 则会安装最新版本的该插件
 
 * ### 注销检查更新回调函数
 ```ts
@@ -61,7 +62,7 @@ export function apply() {
     // verifyCode 是 register 的返回值
     ctx.updater.update(
         'systools-lts',
-        {  // 于 register 参数相同, 但可选填部分 key
+        {  // 与 register 参数相同, 但可选填部分 key
             ...
         }
     )
