@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-update-service",
   "description": "检查更新小助手 (x",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -28,7 +28,11 @@
     "url": "https://github.com/zhuhansan666/koishi-plugin-update-service.git"
   },
   "peerDependencies": {
-    "koishi": "^4.16.7"
+    "koishi": "^4.16.7",
+    "@koishijs/plugin-console": "^5.11.0"
+  },
+  "devDependencies": {
+    "@koishijs/client": "^5.11.0"
   },
   "koishi": {
     "service": {

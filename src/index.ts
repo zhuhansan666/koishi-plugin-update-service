@@ -60,7 +60,7 @@ export const Config: Schema<Config> = Schema.intersect([
     }).description('服务配置'),
     Schema.object({
         enablePermissionSystem: Schema.boolean().default(false).description('启用权限系统').experimental()
-    })
+    }).description('其他配置')
 ])
 
 function randint(min: number, max: number): number {
