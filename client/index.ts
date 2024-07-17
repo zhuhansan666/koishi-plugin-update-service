@@ -1,4 +1,5 @@
 import { Context } from '@koishijs/client'
+import { receive } from '@koishijs/client'
 import managePage from './vue/manage.vue'
 
 const pathPrefix = '/update-service'

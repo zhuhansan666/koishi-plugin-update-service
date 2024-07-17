@@ -9,20 +9,21 @@
 * ### 注册检查更新回调函数
 ```ts
 import {  } from 'koishi-plugin-update-service'  // 合并类型
+import { Context } from 'koishi'
 
 ...
 
-export function apply() {
+export function apply(ctx: Context) {
     ...
 
     const verifyCode = ctx.updater.register(
-        'systools-lts',
+        ctx,
         {
             new: (name: string, verison: string) => {
                 // 在该插件新增时回调
                 ...
             },
-            update: (name: string, verison: string, latest: string) => {
+            update: (name: string, verison: string, latest: string,) => {
                 // 在插件版本更新时回调
                 ...
             },
@@ -39,29 +40,31 @@ export function apply() {
 * ### 注销检查更新回调函数
 ```ts
 import {  } from 'koishi-plugin-update-service'  // 合并类型
+import { Context } from 'koishi'
 
 ...
 
-export function apply() {
+export function apply(ctx: Context) {
     ...
 
     // verifyCode 是 register 的返回值
-    ctx.updater.unregister('systools-lts', verifyCode)
+    ctx.updater.unregister(ctx, verifyCode)
 }
 ```
 
 * ### 更新检查更新回调函数
 ```ts
 import {  } from 'koishi-plugin-update-service'  // 合并类型
+import { Context } from 'koishi'
 
 ...
 
-export function apply() {
+export function apply(ctx: Context) {
     ...
 
     // verifyCode 是 register 的返回值
     ctx.updater.update(
-        'systools-lts',
+        ctx,
         {  // 与 register 参数相同, 但可选填部分 key
             ...
         }

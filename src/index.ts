@@ -10,14 +10,14 @@ import { } from '@koishijs/plugin-market'
 
 export const name = 'update-service'
 
-export const inject = ['console.market', 'installer']
+export const inject = ['installer']
 
 type Nullable<T> = T | null | undefined | void
 
 interface CallbacksDictFunctions {
-    new: (shortname: string, version: string) => Nullable<boolean>,
-    update: (shortname: string, currentVersion: string, latestVersion: string) => Nullable<boolean>,
-    delete: (shortname: string) => Nullable<void>,
+    new: (shortname: Shortname, version: CurrentVersion) => Nullable<boolean>,
+    update: (shortname: Shortname, currentVersion: CurrentVersion, latestVersion: LatestVersion) => Nullable<boolean>,
+    delete: (shortname: Shortname) => Nullable<void>,
 }
 
 interface CallbacksDictPrivates {
@@ -44,6 +44,13 @@ export type Callbacks = Partial<CallbacksDictFunctions>
 type CallbacksDict = Callbacks & CallbacksDictPrivates
 type CallbacksDictWithMetadata = CallbacksDict & CallbackMetadata
 
+type Shortname = string
+type Fullname = string
+type Version = string
+type CurrentVersion = Version
+type LatestVersion = Version
+type InstallTask = Array<Fullname | LatestVersion>
+
 export type MetadataType = Get<Get<CallbackMetadata2Client, 'metadata'>, 'config'>
 
 export interface Config {
@@ -69,7 +76,7 @@ function randint(min: number, max: number): number {
 
 export class Updater extends Service {
     private previous = null
-    private installTasks = []
+    private installTasks: Array<InstallTask> = []
     private registers: Map<string, CallbacksDictWithMetadata> = new Map()
     private persistencer: Persistencer
     static readonly databaseFile
@@ -110,7 +117,7 @@ export class Updater extends Service {
         return this.makeDict(data)
     }
 
-    private async install() {
+    async #install() {
         // install it
         if (!this.installTasks.length) {
             return
@@ -191,7 +198,6 @@ export class Updater extends Service {
         }
 
         this.ctx.setInterval(async () => {  // https://github.com/koishijs/koishi-plugin-market-info/blob/main/src/index.tsx#L95#L136
-            this.logger.debug(this.registers, this.installTasks)
             const current = await this.getMarket()
             await Promise.all(
                 Object.keys({ ...this.previous, ...current })
@@ -220,20 +226,51 @@ export class Updater extends Service {
                         return
                     })
             )
-            this.install().then()
-
+            const promise = this.#install()
             this.previous = current
+
+            await promise
         }, this.ctx.config.interval)
+    }
+
+    async checkUpdate(pluginCtx: Context, fullname: Fullname): Promise<Nullable<LatestVersion>> {
+        const value: CallbacksDictWithMetadata | undefined = this.registers.get(pluginCtx.name)
+        const updateConfig = value.metadata.config
+        if (!updateConfig.allowReceiveMessage) {
+            this.logger.debug(`plugin ${pluginCtx.name} has not allow receive message`)
+            return
+        }
+
+        const current = await this.getMarket()
+        
+        const latestVersion = current[fullname]?.package.version
+        const currentVersion = this.previous[fullname]?.package.version
+
+        const result = latestVersion === currentVersion ? null : latestVersion
+        this.previous = current
+        return result
+    }
+
+    async install(pluginCtx: Context, fullname: Fullname, version: string): Promise<number> {
+        const value: CallbacksDictWithMetadata | undefined = this.registers.get(pluginCtx.name)
+        const updateConfig = value.metadata.config
+        if (!updateConfig.allowReceiveMessage || !updateConfig.allowInstall) {
+            return 255
+        }
+
+        this.installTasks.push([fullname, version])
+        return this.#install()
     }
 
     /**
      * 注册更新监听器
-     * @param shortname 插件名称
+     * @param pluginCtx 插件上下文实例
      * @param callbacks 回调函数
      * @param force 强制, 覆盖原有回调函数
      * @returns 验证注册码
      */
-    register(shortname: string, callbacks: Callbacks, force: boolean = false): number {
+    register(pluginCtx: Context, callbacks: Callbacks, force: boolean = false): number {
+        const shortname = pluginCtx.name
         const old = this.registers.get(shortname)
         if (old && old.new && old.update && old.delete && !force) {
             throw Error(`register for ${shortname} has already exist, please use \`force = true\` to replace`)
@@ -260,7 +297,7 @@ export class Updater extends Service {
 
         this[Context.current]?.on('dispose', () => {
             // 插件随风消散之后取消注册
-            this.unregister(shortname, value.private.verify)
+            this.unregister(pluginCtx, value.private.verify)
         })
 
         return value.private.verify
@@ -268,11 +305,12 @@ export class Updater extends Service {
 
     /**
      * 解除注册更新监听器
-     * @param shortname 插件名称
+     * @param pluginCtx 插件上下文实例
      * @param verifyCode 验证注册码
      * @returns 0 -> 成功; 255 -> unregistryCode 错误;
      */
-    unregister(shortname: string, verifyCode: number): number {
+    unregister(pluginCtx: Context, verifyCode: number): number {
+        const shortname = pluginCtx.name
         if (!this.registers.has(shortname)) {
             return 0;
         }
@@ -289,11 +327,13 @@ export class Updater extends Service {
 
     /**
      * 解除注册更新监听器
-     * @param shortname 插件名称
+     * @param pluginCtx 插件上下文实例
      * @param verifyCode 验证注册码
      * @returns 0 -> 成功; 255 -> unregistryCode 错误;
      */
-    update(shortname: string, verifyCode: number, callbacks: Callbacks): number {
+    update(pluginCtx: Context, verifyCode: number, callbacks: Callbacks): number {
+        const shortname = pluginCtx.name
+
         if (!this.registers.has(shortname)) {
             throw Error(`register for ${shortname} not found`)
         }

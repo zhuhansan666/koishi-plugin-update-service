@@ -2,6 +2,7 @@ import { readFile, writeFile, stat, unlink, mkdir } from "fs/promises"
 import { existsSync } from 'fs'
 import { parse } from 'path'
 
+// 持久化
 export class Persistencer {
     private readonly file
 
