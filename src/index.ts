@@ -79,11 +79,13 @@ export class Updater extends Service {
     private installTasks: Array<InstallTask> = []
     private registers: Map<string, CallbacksDictWithMetadata> = new Map()
     private persistencer: Persistencer
+    private endpoint: string
     static readonly databaseFile
 
     constructor(ctx: Context, config: Config) {
         super(ctx, 'updater', true)
         this.ctx.config = config  // fix it
+        this.endpoint = config.endpoint
 
         this.persistencer = new Persistencer(resolve(this.ctx.baseDir, 'data/update-service/store.json'))
     }
@@ -113,7 +115,7 @@ export class Updater extends Service {
     }
 
     private async getMarket() {
-        const data = await this.ctx.http.get<SearchResult>(this.ctx.config.endpoint)
+        const data = await this.ctx.http.get<SearchResult>(this.endpoint)
         return this.makeDict(data)
     }
 
